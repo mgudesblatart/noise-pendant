@@ -1,42 +1,50 @@
 #include <Arduino.h>
-#include <driver/i2s.h>
 #include <U8g2lib.h>
+#include <setup_display.h>
+#include <update_display.h>
+#include <display_images.h>
+#include <setup_audio.h>
+#include <audio_math.h>
+#include "../include/thresholds.h"
+#include <nvs_config.h>
 
 #define BUILTIN_LED 8
 #define SAMPLE_BUFFER_SIZE 512
-#define SAMPLE_RATE 8000
-#define I2S_MIC_CHANNEL I2S_CHANNEL_FMT_ONLY_LEFT
-#define I2S_MIC_SERIAL_CLOCK GPIO_NUM_0
-#define I2S_MIC_LEFT_RIGHT_CLOCK GPIO_NUM_2
-#define I2S_MIC_SERIAL_DATA GPIO_NUM_1
-
-// I2S config
-static i2s_config_t i2s_config = {
-    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
-    .sample_rate = SAMPLE_RATE,
-    .bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT,
-    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
-    .communication_format = I2S_COMM_FORMAT_I2S,
-    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-    .dma_buf_count = 4,
-    .dma_buf_len = 1024,
-    .use_apll = false,
-    .tx_desc_auto_clear = false,
-    .fixed_mclk = 0};
-
-static i2s_pin_config_t i2s_mic_pins = {
-    .bck_io_num = I2S_MIC_SERIAL_CLOCK,
-    .ws_io_num = I2S_MIC_LEFT_RIGHT_CLOCK,
-    .data_out_num = I2S_PIN_NO_CHANGE,
-    .data_in_num = I2S_MIC_SERIAL_DATA};
 
 U8G2_SSD1306_72X40_ER_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, 6, 5);
-int width = 72;
-int height = 40;
-int xOffset = 0;
-int yOffset = 0;
-
 int32_t raw_samples[SAMPLE_BUFFER_SIZE];
+
+// Active mode and threshold (should be loaded from NVS in future)
+int activeModeId = 0;
+float currentThreshold = modeInfos[0].threshold;
+float noiseFloor[3] = {0.0f, 0.0f, 0.0f};
+// Calibrate noise floor for current mode
+void calibrateNoiseFloor(int modeId) {
+    Serial.println("Calibrating noise floor...");
+    unsigned long start = millis();
+    float maxRMS = 0.0f;
+    int frame = 0;
+    while (millis() - start < 5000) {
+        size_t bytes_read = 0;
+        esp_err_t err = i2s_read(I2S_NUM_0, raw_samples, sizeof(int32_t) * SAMPLE_BUFFER_SIZE, &bytes_read, portMAX_DELAY);
+        if (err != ESP_OK) continue;
+        int samples_read = bytes_read / sizeof(int32_t);
+        processAudioBlock(raw_samples, samples_read);
+        float rms = getAverageRMS();
+        if (rms > maxRMS) maxRMS = rms;
+        float progress = (float)(millis() - start) / 5000.0f;
+        int secondsElapsed = (millis() - start) / 1000;
+        drawCalibrationProgress(u8g2, progress, (frame % 4) + 1, secondsElapsed);
+        frame++;
+        vTaskDelay(100 / portTICK_PERIOD_MS);
+    }
+    // Add a small buffer to the noise floor
+    maxRMS *= 1.2f;
+    noiseFloor[modeId] = maxRMS;
+    saveNoiseFloor(modeId, maxRMS);
+    Serial.printf("Noise floor for mode %d calibrated: %.2f\n", modeId, maxRMS);
+}
+
 
 void audioTask(void *pvParameters) {
     while (1) {
@@ -48,44 +56,52 @@ void audioTask(void *pvParameters) {
             continue;
         }
         int samples_read = bytes_read / sizeof(int32_t);
-        // dump the samples out to the serial channel.
-        for (int i = 0; i < samples_read; i++) {
-            Serial.printf("%ld\n", raw_samples[i]);
-        }
+        processAudioBlock(raw_samples, samples_read);
+        // Offset RMS by noise floor
+        float adjustedRMS = getAverageRMS() - noiseFloor[activeModeId];
+        if (adjustedRMS < 0.0f) adjustedRMS = 0.0f;
+        Serial.printf("Mode: %s (%d), RMS: %.2f, Peak: %ld, DC Offset: %.2f, Avg RMS: %.2f, Observed Max: %.2f, Noise Floor: %.2f\n",
+            modeInfos[activeModeId].name, activeModeId, last_rms, last_peak, last_dc_offset, adjustedRMS, observed_max[activeModeId], noiseFloor[activeModeId]);
+        Serial.printf("Alarm State: %s\n", "(not implemented)");
         vTaskDelay(10 / portTICK_PERIOD_MS); // yield to other tasks
     }
 }
 
 void displayTask(void *pvParameters) {
     while (1) {
-        u8g2.clearBuffer();
-        u8g2.drawFrame(xOffset + 0, yOffset + 0, width, height);
-        u8g2.setCursor(xOffset + 15, yOffset + 25);
-        u8g2.printf("%dx%d", width, height);
-        u8g2.sendBuffer();
+        float barValue = normalizeBarValue(getAverageRMS(), activeModeId);
+        Serial.printf("Current Threshold: %.2f, Bar Value: %.2f\n", modeInfos[activeModeId].threshold, barValue);
+        updateDisplay(u8g2, barValue);
         vTaskDelay(100 / portTICK_PERIOD_MS); // update every 100ms
+    }
+}
+
+void testConfigDisplay() {
+    for (int i = 0; i < 3; ++i) {
+        displayConfigUI(u8g2, i);
+        Serial.printf("Displayed config UI for mode %d: %s, threshold %.1f\n", i, modeInfos[i].name, modeInfos[i].threshold);
+        delay(1500); // Show each mode for 1.5 seconds
     }
 }
 
 void setup() {
     delay(1000);
-    u8g2.begin();
-    u8g2.setContrast(255);
-    u8g2.setBusClock(400000);
-    u8g2.setFont(u8g2_font_ncenB10_tr);
     Serial.begin(115200);
     pinMode(BUILTIN_LED, OUTPUT);
-    delay(1000);
-    Serial.println("Serial started. Beginning I2S init...");
-    esp_err_t err = i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
-    if (err != ESP_OK) {
-        Serial.printf("I2S driver install failed: %d\n", err);
-        while (1) {
-            delay(1000);
-        }
-    }
-    i2s_set_pin(I2S_NUM_0, &i2s_mic_pins);
-    Serial.println("I2S init complete. Starting FreeRTOS tasks.");
+    setupDisplay(u8g2);
+    setupAudio();
+    setupNVS();
+    int current_mode = loadCurrentMode();
+    // // Load noise floor from NVS, calibrate if not set
+    // for (int i = 0; i < 3; ++i) {
+    //     noiseFloor[i] = loadNoiseFloor(i);
+    //     if (noiseFloor[i] < 1.0f) {
+    //         calibrateNoiseFloor(i);
+    //     }
+    // }
+    calibrateNoiseFloor(current_mode);
+    Serial.println("Init complete. Starting FreeRTOS tasks.");
+    testConfigDisplay(); // <--- Test the config UI display
     xTaskCreatePinnedToCore(audioTask, "AudioTask", 4096, NULL, 2, NULL, 0);
     xTaskCreatePinnedToCore(displayTask, "DisplayTask", 4096, NULL, 1, NULL, 1);
 }
