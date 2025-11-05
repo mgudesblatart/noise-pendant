@@ -3,37 +3,47 @@
 #include "../../include/thresholds.h"
 #include <nvs_config.h>
 
-float observed_max[3] = {11360000.0f, 11360000.0f, 11360000.0f};
-
-void loadAllObservedMax() {
-    for (int i = 0; i < 3; ++i) {
-        observed_max[i] = loadObservedMax(i);
-    }
-}
-
-float normalizeBarValue(float rms, int modeId) {
-    // Update observed max for current mode and persist
-    if (rms > observed_max[modeId]) {
-        observed_max[modeId] = rms;
-        saveObservedMax(modeId, rms);
-    }
+float normalizeBarValue(float rms, int modeId)
+{
     float scaled = (rms / observed_max[modeId]) * 100.0f; // Map to 0-100
     float barValue = scaled / modeInfos[modeId].threshold;
-    if (barValue > 1.0f) barValue = 1.0f;
-    if (barValue < 0.0f) barValue = 0.0f;
-    Serial.printf("Mode %d Observed Max: %.2f\n scaled: %.2f\n, threshold: %.2f\n, barValue: %.2f\n", modeId, observed_max[modeId], scaled, modeInfos[modeId].threshold, barValue);
+    if (barValue > 1.0f)
+        barValue = 1.0f;
+    if (barValue < 0.0f)
+        barValue = 0.0f;
+    Serial.printf("Mode %d, Observed Max: %.2f scaled: %.2f threshold: %.2f barValue: %.2f\n", modeId, observed_max[modeId], scaled, modeInfos[modeId].threshold, barValue);
     return barValue;
 }
 
-void resetObservedMax(int modeId) {
-    observed_max[modeId] = 1.0f;
-    saveObservedMax(modeId, 1.0f);
-    for (int i = 0; i < 3; ++i) {
-        observed_max[i] = loadObservedMax(i);
+void drawAlarm(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2)
+{
+    // Flashing effect: alternate between triangle and blank every 500ms
+    if (((millis() / 500) % 2) == 0)
+    {
+        u8g2.clearBuffer();
+        int w = u8g2.getDisplayWidth();
+        int h = u8g2.getDisplayHeight();
+        u8g2.setDrawColor(1);
+        u8g2.drawTriangle(w / 2, 5, w / 2 - 16, h - 5, w / 2 + 16, h - 5);
+        u8g2.setFont(u8g2_font_fub14_tr); // Use a larger, bold font
+        u8g2.setDrawColor(0);
+        int exMarkWidth = u8g2.getStrWidth("!");
+        int exMarkHeight = 14; // Approximate height for fub14
+        int triCenterY = (5 + (h - 5) + (h - 5)) / 3;
+        int exMarkX = w / 2 - exMarkWidth / 2;
+        int exMarkY = triCenterY + exMarkHeight / 2;
+        u8g2.drawStr(exMarkX, exMarkY, "!");
+        u8g2.sendBuffer();
+    }
+    else
+    {
+        u8g2.clearBuffer();
+        u8g2.sendBuffer();
     }
 }
 
-void drawBarGraph(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float value) {
+void drawBarGraph(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float value)
+{
     int width = u8g2.getDisplayWidth();
     int height = u8g2.getDisplayHeight();
     int barWidth = (int)(value * width);
@@ -42,14 +52,16 @@ void drawBarGraph(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float value) {
     u8g2.sendBuffer();
 }
 
-void drawFrame(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2) {
+void drawFrame(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2)
+{
     int width = u8g2.getDisplayWidth();
     int height = u8g2.getDisplayHeight();
     u8g2.drawFrame(0, 0, width, height);
     u8g2.sendBuffer();
 }
 
-void drawCalibrationProgress(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float progress, int ellipsisFrame, int secondsElapsed) {
+void drawCalibrationProgress(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float progress, int ellipsisFrame, int secondsElapsed)
+{
     int width = u8g2.getDisplayWidth();
     int height = u8g2.getDisplayHeight();
     int barWidth = (int)(progress * width); // Smooth progress bar
@@ -57,8 +69,9 @@ void drawCalibrationProgress(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float progres
     u8g2.setFont(u8g2_font_6x10_tf);
     u8g2.drawStr(5, 15, "Calibrating");
     // Animated ellipses
-    for (int i = 0; i < ellipsisFrame; ++i) {
-        u8g2.drawStr(65 + 5*i, 15, ".");
+    for (int i = 0; i < ellipsisFrame; ++i)
+    {
+        u8g2.drawStr(65 + 5 * i, 15, ".");
     }
     // Progress bar (smooth)
     u8g2.drawFrame(0, 25, width, 10);
@@ -71,7 +84,8 @@ void drawCalibrationProgress(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float progres
 }
 
 // Configuration UI display
-void displayConfigUI(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, int activeModeId) {
+void displayConfigUI(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, int activeModeId)
+{
     int width = u8g2.getDisplayWidth();
     u8g2.clearBuffer();
     // Draw mode icon centered

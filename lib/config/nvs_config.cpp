@@ -3,6 +3,9 @@
 
 Preferences preferences;
 
+int activeModeId = 0;
+float currentThreshold = 0.0f;
+
 void setupNVS() {
     preferences.begin(PREFS_NAMESPACE, false); // false = read/write mode
 }

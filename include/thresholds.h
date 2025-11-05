@@ -13,5 +13,4 @@ static const ModeInfo modeInfos[] = {
     {"NIGHT", 0x29, 37.5f, 2}    // Night: crescent moond
 };
 
-extern int activeModeId;
-extern float currentThreshold;
+extern float observed_max[3];

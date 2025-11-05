@@ -1,6 +1,6 @@
 #pragma once
 #include <Preferences.h>
-#include "../../include/thresholds.h"
+#include "thresholds.h"
 
 #define PREFS_NAMESPACE "medallion"
 
@@ -17,3 +17,5 @@ void saveNoiseFloor(int modeId, float value);
 float loadNoiseFloor(int modeId);
 
 extern Preferences preferences;
+extern int activeModeId;
+extern float currentThreshold;
