@@ -1,13 +1,11 @@
 #pragma once
 #include <U8g2lib.h>
-#include "../../include/thresholds.h"
+#include "thresholds.h"
 
+void clearScreen(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2);
 void drawBarGraph(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float value);
 void drawAlarm(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2);
 void drawFrame(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2);
-
-// Normalization helper
-float normalizeBarValue(float rms, int modeId);
 
 // Calibration animation
 void drawCalibrationProgress(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float progress, int ellipsisFrame, int secondsElapsed);

@@ -14,3 +14,9 @@ static const ModeInfo modeInfos[] = {
 };
 
 extern float observed_max[3];
+
+enum DisplayState {
+    DISPLAY_OFF,
+    DISPLAY_BAR_GRAPH,
+    DISPLAY_ALARM
+};

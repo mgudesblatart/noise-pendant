@@ -1,5 +1,5 @@
-#include "setup_audio.h"
 #include <Arduino.h>
+#include "setup_audio.h"
 
 // I2S config and pins
 #define SAMPLE_RATE 8000

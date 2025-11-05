@@ -1,18 +1,13 @@
 // display_images.cpp
 #include "display_images.h"
-#include "../../include/thresholds.h"
-#include <nvs_config.h>
+#include "thresholds.h"
+#include "nvs_config.h"
 
-float normalizeBarValue(float rms, int modeId)
+void clearScreen(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2)
 {
-    float scaled = (rms / observed_max[modeId]) * 100.0f; // Map to 0-100
-    float barValue = scaled / modeInfos[modeId].threshold;
-    if (barValue > 1.0f)
-        barValue = 1.0f;
-    if (barValue < 0.0f)
-        barValue = 0.0f;
-    Serial.printf("Mode %d, Observed Max: %.2f scaled: %.2f threshold: %.2f barValue: %.2f\n", modeId, observed_max[modeId], scaled, modeInfos[modeId].threshold, barValue);
-    return barValue;
+    u8g2.setDrawColor(1);
+    u8g2.clearBuffer();
+    u8g2.sendBuffer();
 }
 
 void drawAlarm(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2)
@@ -37,8 +32,7 @@ void drawAlarm(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2)
     }
     else
     {
-        u8g2.clearBuffer();
-        u8g2.sendBuffer();
+        clearScreen(u8g2);
     }
 }
 
@@ -47,7 +41,10 @@ void drawBarGraph(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float value)
     int width = u8g2.getDisplayWidth();
     int height = u8g2.getDisplayHeight();
     int barWidth = (int)(value * width);
+    u8g2.setDrawColor(1);
     u8g2.clearBuffer();
+    u8g2.setFont(u8g2_font_6x10_tf);
+    u8g2.drawStr(0, 10, "BAR");
     u8g2.drawBox(0, 0, barWidth, height);
     u8g2.sendBuffer();
 }
@@ -56,6 +53,7 @@ void drawFrame(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2)
 {
     int width = u8g2.getDisplayWidth();
     int height = u8g2.getDisplayHeight();
+    u8g2.setDrawColor(1);
     u8g2.drawFrame(0, 0, width, height);
     u8g2.sendBuffer();
 }
@@ -65,6 +63,7 @@ void drawCalibrationProgress(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float progres
     int width = u8g2.getDisplayWidth();
     int height = u8g2.getDisplayHeight();
     int barWidth = (int)(progress * width); // Smooth progress bar
+    u8g2.setDrawColor(1);
     u8g2.clearBuffer();
     u8g2.setFont(u8g2_font_6x10_tf);
     u8g2.drawStr(5, 15, "Calibrating");
@@ -87,6 +86,7 @@ void drawCalibrationProgress(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float progres
 void displayConfigUI(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, int activeModeId)
 {
     int width = u8g2.getDisplayWidth();
+    u8g2.setDrawColor(1);
     u8g2.clearBuffer();
     // Draw mode icon centered
     u8g2.setFont(u8g2_font_unifont_t_weather);

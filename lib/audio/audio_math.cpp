@@ -1,5 +1,5 @@
-#include "audio_math.h"
 #include <math.h>
+#include "audio_math.h"
 
 #define RMS_HISTORY_SIZE 16
 

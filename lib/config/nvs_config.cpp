@@ -1,5 +1,5 @@
 #include "nvs_config.h"
-#include "../../include/thresholds.h"
+#include "thresholds.h"
 
 Preferences preferences;
 
