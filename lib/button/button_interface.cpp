@@ -1,69 +1,122 @@
 #include <U8g2lib.h>
 #include "button_interface.h"
 #include "thresholds.h"
+#include "state_machine.h"
+
+extern StateMachine stateMachine;
 
 volatile bool buttonPressed = false;
 volatile unsigned long buttonPressStartTime = 0;
 volatile bool buttonEventProcessed = true;
 
-void IRAM_ATTR buttonISR() {
-    bool currentState = digitalRead(BUTTON_PIN);
+volatile unsigned long lastInterruptTime = 0;
+
+void IRAM_ATTR buttonISR()
+{
     unsigned long now = millis();
-    if (currentState == LOW) {  // Button pressed (active low)
-        buttonPressStartTime = now;
-        buttonPressed = true;
-        buttonEventProcessed = false;
-    } else if (buttonPressed) {  // Button released
-        buttonPressed = false;
+    if (now - lastInterruptTime < DEBOUNCE_DURATION)
+    {
+        return; // Ignore bounce
+    }
+    lastInterruptTime = now;
+
+    bool currentState = digitalRead(BUTTON_PIN);
+    if (currentState == LOW)
+    { // Button pressed (active low)
+        if (!buttonPressed)
+        { // First press
+            buttonPressStartTime = now;
+            buttonPressed = true;
+            buttonEventProcessed = false;
+        }
+    }
+    else
+    { // Button released
+        if (buttonPressed)
+        {
+            buttonPressed = false;
+        }
     }
 }
 
-void setupButton() {
+void setupButton()
+{
     pinMode(BUTTON_PIN, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, CHANGE);
 }
 
-ButtonPressType checkButtonPress() {
-    if (buttonEventProcessed) {
+ButtonPressType checkButtonPress()
+{
+    if (buttonEventProcessed)
+    {
         return NO_PRESS;
     }
+
     unsigned long now = millis();
+
     // If button is still pressed, check for long press
-    if (buttonPressed && (now - buttonPressStartTime >= LONG_PRESS_DURATION)) {
-        buttonEventProcessed = true;
+    if (buttonPressed && (now - buttonPressStartTime >= LONG_PRESS_DURATION))
+    {
+        Serial.println("Long Press");
+        buttonEventProcessed = true; // Mark as processed
         return LONG_PRESS;
     }
-    // If button was released and not processed yet
-    if (!buttonPressed && !buttonEventProcessed) {
-        buttonEventProcessed = true;
-        if (now - buttonPressStartTime < LONG_PRESS_DURATION) {
+
+    // If button was released, it's a short press
+    if (!buttonPressed)
+    {
+        // Ensure it wasn't a long press that was already handled
+        if (now - buttonPressStartTime < LONG_PRESS_DURATION)
+        {
+            Serial.println("Short Press");
+            buttonEventProcessed = true; // Mark as processed
             return SHORT_PRESS;
         }
+        else
+        {
+            // This case handles when a long press is released.
+            // The long press was already detected and returned, so we just clean up.
+            buttonEventProcessed = true;
+        }
     }
+
     return NO_PRESS;
 }
 
-// Forward declarations for state variables (to be defined in main.ino)
-extern bool alarmActive;
-extern DisplayState currentState;
-extern float getRelativeLoudness();
-extern void clearScreen(U8G2_SSD1306_72X40_ER_F_HW_I2C&);
-extern void updateDisplay(U8G2_SSD1306_72X40_ER_F_HW_I2C&, DisplayState, float);
-extern U8G2_SSD1306_72X40_ER_F_HW_I2C u8g2;
-
-void handleButtonEvents() {
+void handleButtonEvents()
+{
     ButtonPressType pressType = checkButtonPress();
-    if (pressType == NO_PRESS) return;
-    if (alarmActive && pressType == SHORT_PRESS) {
-        // Acknowledge alarm
-        alarmActive = false;
-        currentState = DISPLAY_BAR_GRAPH;
-        Serial.println("Alarm acknowledged by short press.");
-    } else if (pressType == SHORT_PRESS) {
-        Serial.println("Short press detected (no alarm active).");
-        // Placeholder: config mode cycling, etc.
-    } else if (pressType == LONG_PRESS) {
-        Serial.println("Long press detected.");
-        // Placeholder: config save, etc.
+    if (pressType == NO_PRESS)
+        return;
+    switch (pressType)
+    {
+    case SHORT_PRESS:
+        if (stateMachine.isAlarmActive())
+        {
+            // Acknowledge alarm
+            stateMachine.acknowledgeAlarm();
+            Serial.println("Alarm acknowledged by short press.");
+            return;
+        }
+        if (!stateMachine.isInConfigMode())
+        {
+            stateMachine.enterConfigMode();
+            return;
+        }
+        if (stateMachine.isInConfigMode())
+        {
+            stateMachine.cycleConfigMode();
+            return;
+        }
+        break;
+    case LONG_PRESS:
+        if (stateMachine.isInConfigMode())
+        {
+            stateMachine.exitConfigMode(true);
+            return;
+        }
+        break;
+    default:
+        break;
     }
 }

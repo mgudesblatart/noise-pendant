@@ -83,11 +83,27 @@ void drawCalibrationProgress(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float progres
 }
 
 // Configuration UI display
-void displayConfigUI(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, int activeModeId)
+void displayConfigUI(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, int activeModeId, bool inverted)
 {
     int width = u8g2.getDisplayWidth();
-    u8g2.setDrawColor(1);
     u8g2.clearBuffer();
+
+    if (inverted)
+    {
+        u8g2.setDrawColor(1);
+        u8g2.drawBox(0, 0, u8g2.getDisplayWidth(), u8g2.getDisplayHeight());
+    }
+
+    if (inverted)
+    {
+
+        u8g2.setDrawColor(0);
+    }
+    else
+    {
+
+        u8g2.setDrawColor(1);
+    }
     // Draw mode icon centered
     u8g2.setFont(u8g2_font_unifont_t_weather);
     int iconWidth = 15; // from font BBX Width
@@ -99,4 +115,26 @@ void displayConfigUI(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, int activeModeId)
     int nameX = (width - nameWidth) / 2;
     u8g2.drawStr(nameX, 39, modeInfos[activeModeId].name);
     u8g2.sendBuffer();
+}
+
+static unsigned long lastBlink = 0;
+static bool blinkState = false;
+// Saving config animation: blink mode icon
+void drawSavingConfigUI(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, int activeModeId)
+{
+    unsigned long now = millis();
+    if (now - lastBlink > 300)
+    {
+        blinkState = !blinkState;
+        lastBlink = now;
+    }
+    // Blink: alternate between regular and inverse display
+    if (blinkState)
+    {
+        displayConfigUI(u8g2, activeModeId, true); // WHITE BG
+    }
+    else
+    {
+        displayConfigUI(u8g2, activeModeId, false); // STANDARD
+    }
 }

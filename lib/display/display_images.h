@@ -11,4 +11,7 @@ void drawFrame(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2);
 void drawCalibrationProgress(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float progress, int ellipsisFrame, int secondsElapsed);
 
 // Configuration UI display
-void displayConfigUI(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, int activeModeId);
+void displayConfigUI(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, int activeModeId, bool inverted = false);
+
+// Saving config animation
+void drawSavingConfigUI(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, int activeModeId);

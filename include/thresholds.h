@@ -1,22 +1,37 @@
 #pragma once
 
-struct ModeInfo {
-    const char* name;
+#include <Arduino.h>
+
+#define DEBOUNCE_DURATION 50      // Debounce time in milliseconds
+#define LONG_PRESS_DURATION 2000  // 2 seconds for a long press
+#define ALARM_LEVEL 80.0          // Alarm threshold in dB
+#define WARNING_LEVEL 70.0        // Warning threshold in dB
+
+struct ModeInfo
+{
+    const char *name;
+    const char *keyName;
     uint8_t glyph;
     float threshold;
     int id;
 };
 
 static const ModeInfo modeInfos[] = {
-    {"MORNING", 0x34, 25.0f, 0},      // Morning: sun behind cloud
-    {"AFTERNOON", 0x33, 58.33f, 1},     // Afternoon: full sun
-    {"NIGHT", 0x29, 37.5f, 2}    // Night: crescent moond
+    {"MORNING", "MORN", 0x34, 25.0f, 0},    // Morning: sun behind cloud
+    {"AFTERNOON", "AFTN", 0x33, 58.33f, 1}, // Afternoon: full sun
+    {"NIGHT", "NGHT", 0x29, 37.5f, 2}       // Night: crescent moond
 };
+
+constexpr int NUM_MODES = sizeof(modeInfos) / sizeof(modeInfos[0]);
 
 extern float observed_max[3];
 
-enum DisplayState {
+enum DisplayState
+{
     DISPLAY_OFF,
     DISPLAY_BAR_GRAPH,
-    DISPLAY_ALARM
+    DISPLAY_ALARM,
+    DISPLAY_CONFIG,
+    DISPLAY_SAVING,
+    DISPLAY_CALIBRATION
 };

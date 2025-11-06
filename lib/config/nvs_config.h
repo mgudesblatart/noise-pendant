@@ -4,9 +4,14 @@
 
 #define PREFS_NAMESPACE "medallion"
 
+struct CurrentModeData {
+    int modeId;
+    float currentThreshold;
+};
+
 void setupNVS();
-void saveCurrentMode();
-int loadCurrentMode();
+void saveCurrentMode(int modeId);
+CurrentModeData loadCurrentMode();
 
 // Observed max persistence for dynamic normalization
 void saveObservedMax(int modeId, float value);
@@ -17,5 +22,3 @@ void saveNoiseFloor(int modeId, float value);
 float loadNoiseFloor(int modeId);
 
 extern Preferences preferences;
-extern int activeModeId;
-extern float currentThreshold;

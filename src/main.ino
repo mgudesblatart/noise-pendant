@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
+#include "state_machine.h"
 #include "setup_display.h"
 #include "update_display.h"
 #include "display_images.h"
@@ -10,21 +11,19 @@
 #include "button_interface.h"
 
 
-// --- State Machine & Display Logic ---
 #define BUILTIN_LED 8
 #define SAMPLE_BUFFER_SIZE 512
 
 U8G2_SSD1306_72X40_ER_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, 6, 5);
 int32_t raw_samples[SAMPLE_BUFFER_SIZE];
 
-DisplayState currentState = DISPLAY_OFF;
-DisplayState lastState = DISPLAY_OFF;
-bool alarmActive = false;
-unsigned long alarmTriggeredAt = 0;
+// State machine
+StateMachine stateMachine;
 
 float averageRMS = 0.0f;
 float noiseFloor = 0.0f;
 float observed_max[3] = {11360000.0f, 11360000.0f, 11360000.0f};
+
 
 
 float normalizeBarValue(float rms, int modeId)
@@ -42,7 +41,7 @@ float normalizeBarValue(float rms, int modeId)
 // Provide a stub for getRelativeLoudness (replace with real function if available)
 float getRelativeLoudness() {
     // For now, just return the current bar value
-    return normalizeBarValue(averageRMS, activeModeId) * 100.0f;
+    return normalizeBarValue(averageRMS, stateMachine.getActiveModeId()) * 100.0f;
 }
 
 void resetObservedMax(int modeId)
@@ -88,31 +87,7 @@ void calibrateNoiseFloor(int modeId)
     // Serial.printf("Noise floor for mode %d calibrated: %.2f\n", modeId, noiseFloor);
 }
 
-// Dedicated alarm logic function
-void updateAlarmLogic(float relativeNoiseLevel)
-{
-    lastState = currentState;
-    if (alarmActive || relativeNoiseLevel >= 100.0f)
-    {
-        if (!alarmActive && relativeNoiseLevel >= 100.0f)
-        {
-            alarmActive = true;
-            alarmTriggeredAt = millis();
-            Serial.println("Alarm triggered!");
-        }
-        currentState = DISPLAY_ALARM;
-    }
-    else if (relativeNoiseLevel >= 25.0f)
-    {
-        currentState = DISPLAY_BAR_GRAPH;
-        alarmActive = false;
-    }
-    else
-    {
-        currentState = DISPLAY_OFF;
-        alarmActive = false;
-    }
-}
+// Alarm logic is now handled by StateMachine
 
 void audioTask(void *pvParameters)
 {
@@ -130,14 +105,10 @@ void audioTask(void *pvParameters)
         processAudioBlock(raw_samples, samples_read);
         averageRMS = getAverageRMS();
         float relativeNoiseLevel = getRelativeLoudness();
-        updateAlarmLogic(relativeNoiseLevel);
+        stateMachine.update(relativeNoiseLevel);
         float adjustedRMS = averageRMS - noiseFloor;
         if (adjustedRMS < 0.0f)
             adjustedRMS = 0.0f;
-
-        // Serial.printf("Mode: %s (%d), RMS: %.2f, Peak: %ld, DC Offset: %.2f, Avg RMS: %.2f, Observed Max: %.2f, Noise Floor: %.2f, Current Threshold: %.2f, relativeNoiseLevel: %.2f \n",
-        //               modeInfos[activeModeId].name, activeModeId, last_rms, averageRMS, adjustedRMS, observed_max[activeModeId], noiseFloor, currentThreshold, relativeNoiseLevel);
-        // Serial.printf("Alarm State: %s\n", alarmActive ? "ACTIVE" : "INACTIVE");
 
         vTaskDelay(10 / portTICK_PERIOD_MS); // yield to other tasks
     }
@@ -147,8 +118,8 @@ void displayTask(void *pvParameters)
 {
     while (1)
     {
-        float barValue = normalizeBarValue(averageRMS, activeModeId);
-        updateDisplay(u8g2, currentState, barValue);
+        float barValue = normalizeBarValue(averageRMS, stateMachine.getActiveModeId());
+        updateDisplay(u8g2, stateMachine.getCurrentState(), barValue);
         vTaskDelay(100 / portTICK_PERIOD_MS); // update every 100ms
     }
 }
@@ -158,23 +129,30 @@ void testConfigDisplay()
     for (int i = 0; i < 3; ++i)
     {
         displayConfigUI(u8g2, i);
-        // Serial.printf("Displayed config UI for mode %d: %s, threshold %.1f\n", i, modeInfos[i].name, modeInfos[i].threshold);
         delay(1500); // Show each mode for 1.5 seconds
     }
 }
+
+// Config mode logic is now in StateMachine
 
 void setup()
 {
     delay(1000);
     Serial.begin(115200);
     pinMode(BUILTIN_LED, OUTPUT);
+    Serial.println("Setup Display...");
     setupDisplay(u8g2);
+    Serial.println("Setup Audio...");
     setupAudio();
+    Serial.println("Setup NVS...");
     setupNVS();
-    int current_mode = loadCurrentMode();
-    calibrateNoiseFloor(current_mode);
+    Serial.println("Setup Buttons...");
     setupButton();
-    displayConfigUI(u8g2, current_mode); // Show current mode after test
+    Serial.println("Begin State Machine...");
+    stateMachine.begin();
+    Serial.println("Calibrate Noise Floor...");
+    calibrateNoiseFloor(stateMachine.getActiveModeId());
+    displayConfigUI(u8g2, stateMachine.getActiveModeId());
     delay(1500);
     Serial.println("Init complete. Starting FreeRTOS tasks.");
     xTaskCreatePinnedToCore(audioTask, "AudioTask", 4096, NULL, 3, NULL, 0);
@@ -184,7 +162,8 @@ void setup()
 
 void loop()
 {
-    vTaskDelay(1000 / portTICK_PERIOD_MS); // main loop does nothing
+    // Main loop: nothing needed, all logic is in tasks/state machine
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
 }
 
 // Button event handler task
