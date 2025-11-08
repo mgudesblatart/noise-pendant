@@ -19,12 +19,6 @@ void saveCurrentMode(int modeId)
 {
     Serial.printf("Saving current mode: %s (%d)\n", modeInfos[modeId].name, modeId);
     preferences.putInt("Active_Mode_ID", modeId);
-    // for (int i = 0; i < NUM_MODES; ++i)
-    // {
-    //     char key[32];
-    //     snprintf(key, sizeof(key), "%s_Threshold_Rel", modeInfos[i].keyName);
-    //     preferences.putFloat(key, modeInfos[i].threshold);
-    // }
 }
 
 // Observed max persistence for dynamic normalization

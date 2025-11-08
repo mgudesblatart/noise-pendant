@@ -1,5 +1,6 @@
 #include <U8g2lib.h>
 #include "button_interface.h"
+#include "constants.h"
 #include "thresholds.h"
 #include "state_machine.h"
 
@@ -12,7 +13,7 @@ volatile unsigned long lastInterruptTime = 0;
 void IRAM_ATTR buttonISR()
 {
     unsigned long now = millis();
-    if (now - lastInterruptTime < DEBOUNCE_DURATION)
+    if (now - lastInterruptTime < BUTTON_DEBOUNCE_MS)
     {
         return; // Ignore bounce
     }
@@ -53,7 +54,7 @@ ButtonPressType checkButtonPress()
     unsigned long now = millis();
 
     // If button is still pressed, check for long press
-    if (buttonPressed && (now - buttonPressStartTime >= LONG_PRESS_DURATION))
+    if (buttonPressed && (now - buttonPressStartTime >= BUTTON_LONG_PRESS_MS))
     {
         Serial.println("Long Press");
         buttonEventProcessed = true; // Mark as processed
@@ -64,7 +65,7 @@ ButtonPressType checkButtonPress()
     if (!buttonPressed)
     {
         // Ensure it wasn't a long press that was already handled
-        if (now - buttonPressStartTime < LONG_PRESS_DURATION)
+        if (now - buttonPressStartTime < BUTTON_LONG_PRESS_MS)
         {
             Serial.println("Short Press");
             buttonEventProcessed = true; // Mark as processed

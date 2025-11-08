@@ -133,7 +133,7 @@ void StateMachine::handleConfigMode()
 {
     if (!inConfigMode || saving)
         return;
-    if (millis() - configModeStartTime > CONFIG_TIMEOUT)
+    if (millis() - configModeStartTime > CONFIG_MODE_TIMEOUT_MS)
     {
         exitConfigMode(false);
     }

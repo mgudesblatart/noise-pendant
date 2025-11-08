@@ -1,14 +1,13 @@
 #include <Arduino.h>
 #include <math.h>
 #include <driver/i2s.h>
+#include "constants.h"
 #include "thresholds.h"
 #include "audio_math.h"
 #include "audio_state.h"
 #include "nvs_config.h"
 #include "state_machine.h"
 #include "display_images.h"
-
-#define RMS_HISTORY_SIZE 16
 
 float rms_history[RMS_HISTORY_SIZE];
 int rms_history_index = 0;
@@ -75,7 +74,7 @@ void calibrateNoiseFloor(int modeId, int32_t* raw_samples, size_t sample_buffer_
     unsigned long start = millis();
     float maxRMS = 0.0f;
     int frame = 0;
-    while (millis() - start < 5000) {
+    while (millis() - start < CALIBRATION_DURATION_MS) {
         size_t bytes_read = 0;
         esp_err_t err = i2s_read(I2S_NUM_0, raw_samples, sizeof(int32_t) * SAMPLE_BUFFER_SIZE, &bytes_read, portMAX_DELAY);
         if (err != ESP_OK)
@@ -87,11 +86,11 @@ void calibrateNoiseFloor(int modeId, int32_t* raw_samples, size_t sample_buffer_
             audioState.setObservedMax(modeId, rms);
             saveObservedMax(modeId, rms);
         }
-        float progress = (float)(millis() - start) / 5000.0f;
+        float progress = (float)(millis() - start) / CALIBRATION_DURATION_MS;
         int secondsElapsed = (millis() - start) / 1000;
         drawCalibrationProgress(u8g2, progress, (frame % 4) + 1, secondsElapsed);
         frame++;
-        vTaskDelay(100 / portTICK_PERIOD_MS);
+        vTaskDelay(DISPLAY_UPDATE_MS / portTICK_PERIOD_MS);
     }
     audioState.setNoiseFloor(maxRMS * 1.2f);
     saveNoiseFloor(modeId, audioState.getNoiseFloor());
@@ -114,5 +113,5 @@ void processAudioTask(int32_t* raw_samples, size_t sample_buffer_size, AudioStat
     if (adjustedRMS < 0.0f)
         adjustedRMS = 0.0f;
 
-    vTaskDelay(10 / portTICK_PERIOD_MS); // yield to other tasks
+    vTaskDelay(AUDIO_TASK_YIELD_MS / portTICK_PERIOD_MS); // yield to other tasks
 }

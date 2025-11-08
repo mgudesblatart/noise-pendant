@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 #include <esp_pm.h>
+#include "constants.h"
 #include "state_machine.h"
 #include "setup_display.h"
 #include "update_display.h"
@@ -12,10 +13,9 @@
 #include "nvs_config.h"
 #include "button_interface.h"
 #include "power_management.h"
+#include "task_functions.h"
 
-#define BUILTIN_LED 8
-
-U8G2_SSD1306_72X40_ER_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, 6, 5);
+U8G2_SSD1306_72X40_ER_F_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, DISPLAY_SCL_PIN, DISPLAY_SDA_PIN);
 int32_t raw_samples[SAMPLE_BUFFER_SIZE];
 
 // State machine
@@ -25,44 +25,7 @@ StateMachine stateMachine;
 AudioState audioState;
 
 // Shared context for tasks
-struct TaskContext {
-    AudioState* audioState;
-    StateMachine* stateMachine;
-    U8G2_SSD1306_72X40_ER_F_HW_I2C* display;
-};
-
 TaskContext taskContext;
-
-void audioTask(void *pvParameters)
-{
-    TaskContext* ctx = (TaskContext*)pvParameters;
-    while (1)
-    {
-        processAudioTask(raw_samples, SAMPLE_BUFFER_SIZE, *ctx->audioState, *ctx->stateMachine);
-    }
-}
-
-void displayTask(void *pvParameters)
-{
-    TaskContext* ctx = (TaskContext*)pvParameters;
-    while (1)
-    {
-        float barValue = normalizeBarValue(ctx->audioState->getAverageRMS(), ctx->stateMachine->getActiveModeId(), *ctx->audioState);
-        updateDisplay(*ctx->display, ctx->stateMachine->getCurrentState(), barValue, *ctx->stateMachine);
-        vTaskDelay(100 / portTICK_PERIOD_MS); // update every 100ms
-    }
-}
-
-void testConfigDisplay()
-{
-    for (int i = 0; i < 3; ++i)
-    {
-        displayConfigUI(u8g2, i);
-        delay(1500); // Show each mode for 1.5 seconds
-    }
-}
-
-// Config mode logic is now in StateMachine
 
 void setup()
 {
@@ -92,25 +55,12 @@ void setup()
     taskContext.stateMachine = &stateMachine;
     taskContext.display = &u8g2;
 
-    xTaskCreatePinnedToCore(audioTask, "AudioTask", 4096, &taskContext, 3, NULL, 0);
-    xTaskCreatePinnedToCore(displayTask, "DisplayTask", 4096, &taskContext, 1, NULL, 1);
-    xTaskCreatePinnedToCore(buttonTask, "ButtonTask", 2048, &taskContext, 1, NULL, 1);
+    xTaskCreatePinnedToCore(audioTask, "AudioTask", AUDIO_TASK_STACK_SIZE, &taskContext, 3, NULL, 0);
+    xTaskCreatePinnedToCore(displayTask, "DisplayTask", DISPLAY_TASK_STACK_SIZE, &taskContext, 1, NULL, 1);
+    xTaskCreatePinnedToCore(buttonTask, "ButtonTask", BUTTON_TASK_STACK_SIZE, &taskContext, 1, NULL, 1);
     setupPowerManagement();
-}
-
-void loop()
+}void loop()
 {
     // Main loop: nothing needed, all logic is in tasks/state machine
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
-}
-
-// Button event handler task
-void buttonTask(void *pvParameters)
-{
-    TaskContext* ctx = (TaskContext*)pvParameters;
-    while (1)
-    {
-        handleButtonEvents(*ctx->stateMachine);
-        vTaskDelay(10 / portTICK_PERIOD_MS); // check button every 10ms
-    }
+    vTaskDelay(MAIN_LOOP_DELAY_MS / portTICK_PERIOD_MS);
 }

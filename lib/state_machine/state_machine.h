@@ -1,6 +1,7 @@
 #ifndef STATE_MACHINE_H
 #define STATE_MACHINE_H
 
+#include "constants.h"
 #include "thresholds.h"
 #include <Arduino.h>
 
@@ -33,7 +34,6 @@ private:
     unsigned long configModeStartTime;
     int activeModeId;
     float currentThreshold;
-    const unsigned long CONFIG_TIMEOUT = 5000;
     void updateAlarmLogic(float relativeNoiseLevel);
     void handleConfigMode();
 };
