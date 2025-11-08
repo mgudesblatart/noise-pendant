@@ -10,8 +10,6 @@
 
 #define RMS_HISTORY_SIZE 16
 
-extern StateMachine stateMachine;
-
 float rms_history[RMS_HISTORY_SIZE];
 int rms_history_index = 0;
 
@@ -62,7 +60,7 @@ float normalizeBarValue(float rms, int modeId, const AudioState& audioState) {
     return barValue;
 }
 
-float getRelativeLoudness(const AudioState& audioState) {
+float getRelativeLoudness(const AudioState& audioState, StateMachine& stateMachine) {
     return normalizeBarValue(audioState.getAverageRMS(), stateMachine.getActiveModeId(), audioState) * 100.0f;
 }
 
@@ -99,7 +97,7 @@ void calibrateNoiseFloor(int modeId, int32_t* raw_samples, size_t sample_buffer_
     saveNoiseFloor(modeId, audioState.getNoiseFloor());
 }
 
-void processAudioTask(int32_t* raw_samples, size_t sample_buffer_size, AudioState& audioState) {
+void processAudioTask(int32_t* raw_samples, size_t sample_buffer_size, AudioState& audioState, StateMachine& stateMachine) {
     size_t bytes_read = 0;
     esp_err_t err = i2s_read(I2S_NUM_0, raw_samples, sizeof(int32_t) * sample_buffer_size, &bytes_read, portMAX_DELAY);
     if (err != ESP_OK) {
@@ -110,7 +108,7 @@ void processAudioTask(int32_t* raw_samples, size_t sample_buffer_size, AudioStat
     int samples_read = bytes_read / sizeof(int32_t);
     processAudioBlock(raw_samples, samples_read, audioState);
     audioState.setAverageRMS(getAverageRMS());
-    float relativeNoiseLevel = getRelativeLoudness(audioState);
+    float relativeNoiseLevel = getRelativeLoudness(audioState, stateMachine);
     stateMachine.update(relativeNoiseLevel);
     float adjustedRMS = audioState.getAverageRMS() - audioState.getNoiseFloor();
     if (adjustedRMS < 0.0f)

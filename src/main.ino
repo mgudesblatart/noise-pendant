@@ -24,22 +24,31 @@ StateMachine stateMachine;
 // Audio state
 AudioState audioState;
 
+// Shared context for tasks
+struct TaskContext {
+    AudioState* audioState;
+    StateMachine* stateMachine;
+    U8G2_SSD1306_72X40_ER_F_HW_I2C* display;
+};
+
+TaskContext taskContext;
+
 void audioTask(void *pvParameters)
 {
-    AudioState* audioState = (AudioState*)pvParameters;
+    TaskContext* ctx = (TaskContext*)pvParameters;
     while (1)
     {
-        processAudioTask(raw_samples, SAMPLE_BUFFER_SIZE, *audioState);
+        processAudioTask(raw_samples, SAMPLE_BUFFER_SIZE, *ctx->audioState, *ctx->stateMachine);
     }
 }
 
 void displayTask(void *pvParameters)
 {
-    AudioState* audioState = (AudioState*)pvParameters;
+    TaskContext* ctx = (TaskContext*)pvParameters;
     while (1)
     {
-        float barValue = normalizeBarValue(audioState->getAverageRMS(), stateMachine.getActiveModeId(), *audioState);
-        updateDisplay(u8g2, stateMachine.getCurrentState(), barValue);
+        float barValue = normalizeBarValue(ctx->audioState->getAverageRMS(), ctx->stateMachine->getActiveModeId(), *ctx->audioState);
+        updateDisplay(*ctx->display, ctx->stateMachine->getCurrentState(), barValue, *ctx->stateMachine);
         vTaskDelay(100 / portTICK_PERIOD_MS); // update every 100ms
     }
 }
@@ -77,9 +86,15 @@ void setup()
     displayConfigUI(u8g2, stateMachine.getActiveModeId());
     delay(1500);
     Serial.println("Init complete. Starting FreeRTOS tasks.");
-    xTaskCreatePinnedToCore(audioTask, "AudioTask", 4096, &audioState, 3, NULL, 0);
-    xTaskCreatePinnedToCore(displayTask, "DisplayTask", 4096, &audioState, 1, NULL, 1);
-    xTaskCreatePinnedToCore(buttonTask, "ButtonTask", 2048, NULL, 1, NULL, 1);
+
+    // Initialize task context
+    taskContext.audioState = &audioState;
+    taskContext.stateMachine = &stateMachine;
+    taskContext.display = &u8g2;
+
+    xTaskCreatePinnedToCore(audioTask, "AudioTask", 4096, &taskContext, 3, NULL, 0);
+    xTaskCreatePinnedToCore(displayTask, "DisplayTask", 4096, &taskContext, 1, NULL, 1);
+    xTaskCreatePinnedToCore(buttonTask, "ButtonTask", 2048, &taskContext, 1, NULL, 1);
     setupPowerManagement();
 }
 
@@ -92,9 +107,10 @@ void loop()
 // Button event handler task
 void buttonTask(void *pvParameters)
 {
+    TaskContext* ctx = (TaskContext*)pvParameters;
     while (1)
     {
-        handleButtonEvents();
+        handleButtonEvents(*ctx->stateMachine);
         vTaskDelay(10 / portTICK_PERIOD_MS); // check button every 10ms
     }
 }

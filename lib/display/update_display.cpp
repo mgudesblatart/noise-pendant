@@ -4,9 +4,7 @@
 #include "display_images.h"
 #include "state_machine.h"
 
-extern StateMachine stateMachine;
-
-void updateDisplay(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, DisplayState state, float value)
+void updateDisplay(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, DisplayState state, float value, StateMachine& stateMachine)
 {
     // Serial.printf("[DEBUG] updateDisplay: state=%d, value=%.2f\n", state, value);
     switch (state)

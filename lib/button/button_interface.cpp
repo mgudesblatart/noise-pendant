@@ -3,8 +3,6 @@
 #include "thresholds.h"
 #include "state_machine.h"
 
-extern StateMachine stateMachine;
-
 volatile bool buttonPressed = false;
 volatile unsigned long buttonPressStartTime = 0;
 volatile bool buttonEventProcessed = true;
@@ -83,7 +81,7 @@ ButtonPressType checkButtonPress()
     return NO_PRESS;
 }
 
-void handleButtonEvents()
+void handleButtonEvents(StateMachine& stateMachine)
 {
     ButtonPressType pressType = checkButtonPress();
     if (pressType == NO_PRESS)
