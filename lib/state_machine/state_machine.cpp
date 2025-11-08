@@ -1,6 +1,8 @@
 #include "state_machine.h"
 #include "nvs_config.h"
-#include "display_images.h"
+
+const char *displayStateNames[] = {
+    "OFF", "BAR_GRAPH", "ALARM", "CONFIG", "SAVING", "CALIBRATION"};
 
 StateMachine::StateMachine()
     : currentState(DISPLAY_OFF), lastState(DISPLAY_OFF), alarmActive(false), inConfigMode(false),
@@ -30,8 +32,7 @@ void StateMachine::update(float relativeNoiseLevel)
     }
     updateAlarmLogic(relativeNoiseLevel);
 }
-const char *displayStateNames[] = {
-    "OFF", "BAR_GRAPH", "ALARM", "CONFIG", "SAVING", "CALIBRATION"};
+
 void StateMachine::requestState(DisplayState requested)
 {
     Serial.printf("StateMachine: Requesting state %s Current State: %s Current Mode: %s\n", displayStateNames[requested], displayStateNames[currentState], modeInfos[activeModeId].name);

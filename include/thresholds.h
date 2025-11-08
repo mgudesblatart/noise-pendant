@@ -6,7 +6,7 @@
 #define LONG_PRESS_DURATION 2000  // 2 seconds for a long press
 #define ALARM_LEVEL 80.0          // Alarm threshold in dB
 #define WARNING_LEVEL 70.0        // Warning threshold in dB
-
+#define SAMPLE_BUFFER_SIZE 512
 struct ModeInfo
 {
     const char *name;
@@ -23,8 +23,6 @@ static const ModeInfo modeInfos[] = {
 };
 
 constexpr int NUM_MODES = sizeof(modeInfos) / sizeof(modeInfos[0]);
-
-extern float observed_max[3];
 
 enum DisplayState
 {
