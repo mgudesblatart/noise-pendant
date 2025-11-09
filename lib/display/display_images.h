@@ -7,6 +7,10 @@ void drawBarGraph(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float value);
 void drawAlarm(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2);
 void drawFrame(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2);
 
+// Display power management
+void displaySleep(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2);
+void displayWake(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2);
+
 // Calibration animation
 void drawCalibrationProgress(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, float progress, int ellipsisFrame, int secondsElapsed);
 

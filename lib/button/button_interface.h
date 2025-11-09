@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <ezButton.h>
 #include "constants.h"
 
 // Forward declaration
@@ -10,6 +11,8 @@ enum ButtonPressType {
     LONG_PRESS,
     NO_PRESS
 };
+
+extern ezButton button;
 
 void setupButton();
 ButtonPressType checkButtonPress();

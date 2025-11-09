@@ -15,7 +15,7 @@ struct ModeInfo
 static const ModeInfo modeInfos[] = {
     {"MORNING", "MORN", 0x34, 25.0f, 0},    // Morning: sun behind cloud
     {"AFTERNOON", "AFTN", 0x33, 58.33f, 1}, // Afternoon: full sun
-    {"NIGHT", "NGHT", 0x29, 37.5f, 2}       // Night: crescent moond
+    {"NIGHT", "NGHT", 0x29, 37.5f, 2}       // Night: crescent moon
 };
 
 constexpr int NUM_MODES = sizeof(modeInfos) / sizeof(modeInfos[0]);

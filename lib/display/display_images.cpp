@@ -10,6 +10,20 @@ void clearScreen(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2)
     u8g2.sendBuffer();
 }
 
+void displaySleep(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2)
+{
+    // Clear display buffer and put display into power-save mode
+    u8g2.clearBuffer();
+    u8g2.sendBuffer();
+    u8g2.setPowerSave(1);  // 1 = power save on
+}
+
+void displayWake(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2)
+{
+    // Wake display from power-save mode
+    u8g2.setPowerSave(0);  // 0 = power save off
+}
+
 void drawAlarm(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2)
 {
     // Flashing effect: alternate between triangle and blank every 500ms

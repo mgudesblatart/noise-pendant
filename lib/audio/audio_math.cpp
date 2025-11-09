@@ -82,10 +82,18 @@ void calibrateNoiseFloor(int modeId, int32_t* raw_samples, size_t sample_buffer_
         int samples_read = bytes_read / sizeof(int32_t);
         processAudioBlock(raw_samples, samples_read, audioState);
         float rms = getAverageRMS();
+
+        // Track maximum RMS for noise floor calculation
+        if (rms > maxRMS) {
+            maxRMS = rms;
+        }
+
+        // Update observed max for this mode
         if (rms > audioState.getObservedMax(modeId)) {
             audioState.setObservedMax(modeId, rms);
             saveObservedMax(modeId, rms);
         }
+
         float progress = (float)(millis() - start) / CALIBRATION_DURATION_MS;
         int secondsElapsed = (millis() - start) / 1000;
         drawCalibrationProgress(u8g2, progress, (frame % 4) + 1, secondsElapsed);
@@ -94,24 +102,4 @@ void calibrateNoiseFloor(int modeId, int32_t* raw_samples, size_t sample_buffer_
     }
     audioState.setNoiseFloor(maxRMS * 1.2f);
     saveNoiseFloor(modeId, audioState.getNoiseFloor());
-}
-
-void processAudioTask(int32_t* raw_samples, size_t sample_buffer_size, AudioState& audioState, StateMachine& stateMachine) {
-    size_t bytes_read = 0;
-    esp_err_t err = i2s_read(I2S_NUM_0, raw_samples, sizeof(int32_t) * sample_buffer_size, &bytes_read, portMAX_DELAY);
-    if (err != ESP_OK) {
-        Serial.printf("I2S read failed: %d\n", err);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
-        return;
-    }
-    int samples_read = bytes_read / sizeof(int32_t);
-    processAudioBlock(raw_samples, samples_read, audioState);
-    audioState.setAverageRMS(getAverageRMS());
-    float relativeNoiseLevel = getRelativeLoudness(audioState, stateMachine);
-    stateMachine.update(relativeNoiseLevel);
-    float adjustedRMS = audioState.getAverageRMS() - audioState.getNoiseFloor();
-    if (adjustedRMS < 0.0f)
-        adjustedRMS = 0.0f;
-
-    vTaskDelay(AUDIO_TASK_YIELD_MS / portTICK_PERIOD_MS); // yield to other tasks
 }

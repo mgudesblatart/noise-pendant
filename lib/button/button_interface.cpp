@@ -1,89 +1,80 @@
 #include <U8g2lib.h>
+#include <ezButton.h>
 #include "button_interface.h"
 #include "constants.h"
 #include "thresholds.h"
 #include "state_machine.h"
+#include "power_management.h"
 
-volatile bool buttonPressed = false;
-volatile unsigned long buttonPressStartTime = 0;
-volatile bool buttonEventProcessed = true;
+unsigned long pressedTime = 0;
+unsigned long releasedTime = 0;
+bool isPressing = false;
+bool isLongDetected = false;
 
-volatile unsigned long lastInterruptTime = 0;
-
-void IRAM_ATTR buttonISR()
-{
-    unsigned long now = millis();
-    if (now - lastInterruptTime < BUTTON_DEBOUNCE_MS)
-    {
-        return; // Ignore bounce
-    }
-    lastInterruptTime = now;
-
-    bool currentState = digitalRead(BUTTON_PIN);
-    if (currentState == LOW)
-    { // Button pressed (active low)
-        if (!buttonPressed)
-        { // First press
-            buttonPressStartTime = now;
-            buttonPressed = true;
-            buttonEventProcessed = false;
-        }
-    }
-    else
-    { // Button released
-        if (buttonPressed)
-        {
-            buttonPressed = false;
-        }
-    }
-}
-
+ezButton button(BUTTON_PIN);
 void setupButton()
 {
-    pinMode(BUTTON_PIN, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), buttonISR, CHANGE);
+    button.setDebounceTime(BUTTON_DEBOUNCE_MS);
+
+    // Enable GPIO wakeup for light sleep compatibility
+    enableGPIOWakeup(BUTTON_PIN);
+
+    Serial.println("Button setup: Pure polling mode");
 }
+
 
 ButtonPressType checkButtonPress()
 {
-    if (buttonEventProcessed)
+    // Serial.println("Checking button press...");
+
+    ButtonPressType pressType = NO_PRESS;
+    // Serial.print("Button state: ");
+    // Serial.println(button.getStateRaw());
+    if (button.isPressed())
     {
-        return NO_PRESS;
+        // Serial.println("Button pressed");
+        pressedTime = millis();
+        isPressing = true;
+        isLongDetected = false;
     }
 
-    unsigned long now = millis();
-
-    // If button is still pressed, check for long press
-    if (buttonPressed && (now - buttonPressStartTime >= BUTTON_LONG_PRESS_MS))
+    if (button.isReleased())
     {
-        Serial.println("Long Press");
-        buttonEventProcessed = true; // Mark as processed
-        return LONG_PRESS;
-    }
+        isPressing = false;
+        isLongDetected = false;
+        releasedTime = millis();
 
-    // If button was released, it's a short press
-    if (!buttonPressed)
-    {
-        // Ensure it wasn't a long press that was already handled
-        if (now - buttonPressStartTime < BUTTON_LONG_PRESS_MS)
+        long pressDuration = releasedTime - pressedTime;
+        // Serial.println("Button released, duration: " + String(pressDuration) + " ms");
+
+        if (pressDuration < BUTTON_LONG_PRESS_MS)
         {
-            Serial.println("Short Press");
-            buttonEventProcessed = true; // Mark as processed
-            return SHORT_PRESS;
-        }
-        else
-        {
-            // This case handles when a long press is released.
-            // The long press was already detected and returned, so we just clean up.
-            buttonEventProcessed = true;
+
+            Serial.println("A short press is detected");
+            pressType = SHORT_PRESS;
+            return pressType;
         }
     }
 
-    return NO_PRESS;
+    if (isPressing == true && isLongDetected == false)
+    {
+        long pressDuration = millis() - pressedTime;
+
+        if (pressDuration > BUTTON_LONG_PRESS_MS)
+        {
+            Serial.println("A long press is detected");
+            isLongDetected = true;
+            pressType = LONG_PRESS;
+        }
+    }
+
+    return pressType;
 }
 
-void handleButtonEvents(StateMachine& stateMachine)
+void handleButtonEvents(StateMachine &stateMachine)
 {
+    // Serial.println("Handling button event");
+    button.loop();
     ButtonPressType pressType = checkButtonPress();
     if (pressType == NO_PRESS)
         return;

@@ -48,18 +48,21 @@ void setup()
     calibrateNoiseFloor(stateMachine.getActiveModeId(), raw_samples, SAMPLE_BUFFER_SIZE, audioState, u8g2);
     displayConfigUI(u8g2, stateMachine.getActiveModeId());
     delay(1500);
+    setupPowerManagement();
     Serial.println("Init complete. Starting FreeRTOS tasks.");
 
     // Initialize task context
     taskContext.audioState = &audioState;
     taskContext.stateMachine = &stateMachine;
     taskContext.display = &u8g2;
+    taskContext.lastDisplayState = DISPLAY_OFF;  // Initialize display state tracking
 
     xTaskCreatePinnedToCore(audioTask, "AudioTask", AUDIO_TASK_STACK_SIZE, &taskContext, 3, NULL, 0);
     xTaskCreatePinnedToCore(displayTask, "DisplayTask", DISPLAY_TASK_STACK_SIZE, &taskContext, 1, NULL, 1);
     xTaskCreatePinnedToCore(buttonTask, "ButtonTask", BUTTON_TASK_STACK_SIZE, &taskContext, 1, NULL, 1);
-    setupPowerManagement();
-}void loop()
+}
+
+void loop()
 {
     // Main loop: nothing needed, all logic is in tasks/state machine
     vTaskDelay(MAIN_LOOP_DELAY_MS / portTICK_PERIOD_MS);

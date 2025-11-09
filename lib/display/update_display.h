@@ -7,5 +7,5 @@
 class StateMachine;
 
 // Unified display update: handles all states
-void updateDisplay(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, DisplayState state, float value, StateMachine& stateMachine);
+void updateDisplay(U8G2_SSD1306_72X40_ER_F_HW_I2C &u8g2, DisplayState state, float value, StateMachine& stateMachine, DisplayState& lastState);
 

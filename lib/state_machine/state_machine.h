@@ -31,6 +31,7 @@ private:
     bool inConfigMode;
     bool saving;
     unsigned long alarmTriggeredAt;
+    unsigned long alarmAcknowledgedAt;  // Track when alarm was last acknowledged
     unsigned long configModeStartTime;
     int activeModeId;
     float currentThreshold;

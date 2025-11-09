@@ -36,6 +36,7 @@
 #define BUTTON_POLL_MS 10          // Button polling interval
 #define AUDIO_TASK_YIELD_MS 10     // Audio task yield to other tasks
 #define MAIN_LOOP_DELAY_MS 1000    // Main loop delay
+#define LIGHT_SLEEP_DURATION_MS 50 // Sleep duration in quiet monitoring state
 
 // ============================================================================
 // Audio Processing Constants

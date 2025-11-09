@@ -6,7 +6,7 @@ const char *displayStateNames[] = {
 
 StateMachine::StateMachine()
     : currentState(DISPLAY_OFF), lastState(DISPLAY_OFF), alarmActive(false), inConfigMode(false),
-      alarmTriggeredAt(0), configModeStartTime(0), activeModeId(0) {}
+      alarmTriggeredAt(0), alarmAcknowledgedAt(0), configModeStartTime(0), activeModeId(0) {}
 
 void StateMachine::begin()
 {
@@ -35,7 +35,7 @@ void StateMachine::update(float relativeNoiseLevel)
 
 void StateMachine::requestState(DisplayState requested)
 {
-    Serial.printf("StateMachine: Requesting state %s Current State: %s Current Mode: %s\n", displayStateNames[requested], displayStateNames[currentState], modeInfos[activeModeId].name);
+    // Serial.printf("StateMachine: Requesting state %s Current State: %s Current Mode: %s\n", displayStateNames[requested], displayStateNames[currentState], modeInfos[activeModeId].name);
     // Priority: CONFIG > ALARM > SAVING > BAR_GRAPH > OFF
     switch (requested)
     {
@@ -71,9 +71,13 @@ void StateMachine::requestState(DisplayState requested)
 void StateMachine::updateAlarmLogic(float relativeNoiseLevel)
 {
     lastState = currentState;
-    if (alarmActive || relativeNoiseLevel >= 100.0f)
+
+    // Check if we're in cooldown period after acknowledgment (5 seconds)
+    bool inCooldown = (alarmAcknowledgedAt > 0) && (millis() - alarmAcknowledgedAt < 5000);
+
+    if (alarmActive || (relativeNoiseLevel >= 100.0f && !inCooldown))
     {
-        if (!alarmActive && relativeNoiseLevel >= 100.0f)
+        if (!alarmActive && relativeNoiseLevel >= 100.0f && !inCooldown)
         {
             alarmActive = true;
             alarmTriggeredAt = millis();
@@ -97,7 +101,9 @@ void StateMachine::acknowledgeAlarm()
     if (alarmActive)
     {
         alarmActive = false;
+        alarmAcknowledgedAt = millis();  // Record acknowledgment time for cooldown
         requestState(DISPLAY_BAR_GRAPH);
+        Serial.println("Alarm acknowledged - 5 second cooldown active");
     }
 }
 
